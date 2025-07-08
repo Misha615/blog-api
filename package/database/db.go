@@ -1,10 +1,12 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -12,10 +14,10 @@ import (
 
 func InitDB() (*sql.DB, error) {
 	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: No .env file found or error loading .env - using system environment variables")
+		log.Printf("Warning: %v", err)
 	}
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=true&collation=utf8mb4_unicode_ci",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASS"),
 		os.Getenv("DB_HOST"),
@@ -26,7 +28,14 @@ func InitDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := db.Ping(); err != nil {
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 

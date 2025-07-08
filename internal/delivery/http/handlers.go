@@ -1,6 +1,7 @@
 package http
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +13,18 @@ import (
 
 	"github.com/gorilla/mux"
 )
+
+func RespondWithError(w http.ResponseWriter, code int, message string) {
+	RespondWithJSON(w, code, map[string]string{"error": message})
+}
+
+func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	w.Header().Set("Content-type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("JSON encoding error: %v", err)
+	}
+}
 
 type ArticleHandler struct {
 	uc *usecases.ArticleUseCase
@@ -32,28 +45,32 @@ func (h *ArticleHandler) GetArticles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(articles)
+	RespondWithJSON(w, http.StatusOK, articles)
 }
 
 func (h *ArticleHandler) GetArticle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		RespondWithError(w, http.StatusMethodNotAllowed, "Invalid article ID")
 		return
 	}
 	article, err := h.uc.GetArticle(id)
 	if err != nil {
-		log.Fatal(err)
+		if err == sql.ErrNoRows {
+			RespondWithError(w, http.StatusNotFound, "Article not found")
+		} else {
+			RespondWithError(w, http.StatusInternalServerError, "Internal server error")
+		}
+		return
 	}
-	w.Header().Set("Content-type", "application/json")
-	json.NewEncoder(w).Encode(article)
+
+	RespondWithJSON(w, http.StatusOK, article)
 }
 
 func (h *ArticleHandler) CreateArticle(w http.ResponseWriter, r *http.Request) {

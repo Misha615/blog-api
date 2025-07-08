@@ -3,7 +3,8 @@ package repositories
 import (
 	"blog-api/internal/entities"
 	"database/sql"
-	//"log"
+	"fmt"
+	"log"
 )
 
 type ArticleRepository struct {
@@ -17,9 +18,13 @@ func NewArticleRepo(db *sql.DB) *ArticleRepository {
 func (r *ArticleRepository) GetAll() ([]entities.Article, error) {
 	row, err := r.db.Query("SELECT id, title, content, created_at FROM articles")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch articles: %w", err)
 	}
-	defer row.Close()
+	defer func() {
+		if err := row.Close(); err != nil {
+			log.Printf("Error closing rows: %v", err)
+		}
+	}()
 
 	var articles []entities.Article
 	for row.Next() {
@@ -45,12 +50,16 @@ func (r *ArticleRepository) GetByID(id int64) (*entities.Article, error) {
 }
 
 func (r *ArticleRepository) Create(title, content string) (int64, error) {
+	if title == "" || content == "" {
+		return -1, fmt.Errorf("title and content cannot be empty")
+	}
+
 	row, err := r.db.Exec("INSERT INTO articles (title, content) VALUES(?, ?)",
 		title,
 		content,
 	)
 	if err != nil {
-		return -1, err
+		return -1, fmt.Errorf("failed to create article: %w", err)
 	}
 
 	return row.LastInsertId()

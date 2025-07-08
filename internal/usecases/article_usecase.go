@@ -3,6 +3,7 @@ package usecases
 import (
 	"blog-api/internal/entities"
 	"blog-api/internal/repositories"
+	"fmt"
 )
 
 type ArticleUseCase struct {
@@ -25,10 +26,13 @@ func (uc *ArticleUseCase) CreateArticle(title, content string) (int64, error) {
 	return uc.repo.Create(title, content)
 }
 
-func (uc *ArticleUseCase) UpdateArticle(id int64, updateArticle *entities.Article) {
-	uc.repo.Update(id, updateArticle)
+func (uc *ArticleUseCase) UpdateArticle(id int64, updateArticle *entities.Article) error {
+	if updateArticle == nil {
+		return fmt.Errorf("article cannot be nil")
+	}
+	return uc.repo.Update(id, updateArticle)
 }
 
-func (uc *ArticleUseCase) DeleteArticle(id int64) {
-	uc.repo.DeleteByID(id)
+func (uc *ArticleUseCase) DeleteArticle(id int64) error {
+	return uc.repo.DeleteByID(id)
 }
